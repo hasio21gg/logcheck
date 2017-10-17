@@ -1,8 +1,9 @@
 #!/bin/sh
+set -e
 # --------------------------------------------------------------------------------------------------
 # システム名    ：
 # サブシステム名：
-# ファイル名    ：
+# ファイル名    ：logchecker.sh 
 #
 # 概要説明      ：
 # --------------------------------------------------------------------------------------------------
@@ -12,13 +13,11 @@
 # --------------------------------------------------------------------------------------------------
 # 001   2017-10-13 ver.1.0.0   INS06202    初版                                       橋本 英雄
 # --------------------------------------------------------------------------------------------------
-
 # ===================================================
+# 環境設定
 # ===================================================
-#
 TODAY=`date "+%Y%m%d%H%M%S"`
 T="+%Y/%m/%d %H:%M:%S"
-
 # ===================================================
 # 検出対象ログファイル
 # ===================================================
@@ -28,14 +27,23 @@ TARGET_LOG="${TARGET_LOG_PATH}${TARGET_LOG_FILE}"
 
 LOGWATCH_LOG_PATH="$(dirname $0)/"
 LOGWATCH_LOG_FILE="${LOGWATCH_LOG_PATH}${TODAY}_$(basename ${0} .sh ).log"
-
+# ===================================================
+# JENKINS設定
+# ===================================================
+JENKINS_HOST=SYSAP001.sthdg.local
+JENKINS_PORT=8083
+JENKINS_JOBID=logwatch_stwas03
+JENKINS_TOKEN=BUILD_TOKEN
+# ===================================================
+# 検出文字列
+# ===================================================
+_error_conditions="ハング"
 # --------------------------------------------------------------------------------------------------
 # ログ処理
 # --------------------------------------------------------------------------------------------------
 logger(){
 	echo `date "${T}"` $1 | tee -a ${LOGWATCH_LOG_FILE}
 }
-
 # --------------------------------------------------------------------------------------------------
 # トラップ処理
 # --------------------------------------------------------------------------------------------------
@@ -44,12 +52,33 @@ trap_action(){
 	logger "INFO : TRAP [$status]"
 	exit $status
 }
+# --------------------------------------------------------------------------------------------------
+# usage
+# --------------------------------------------------------------------------------------------------
+usage() {
+	cat <<EOF
+USAGE
+    $(basename ${0}) <command>
+      <command>
+          runn  : ファイル監視を開始します。
+          mail  : ログ監視して検知したときのメール送信処理だけ実施します（テスト用）
+終了はCTRL+C または ps fxl として得られたtailコマンドのプロセスをKILLします
+例）
+$ ps fxl
+F   UID   PID  PPID PRI  NI    VSZ   RSS WCHAN  STAT TTY        TIME COMMAND
+5  1002  8847  8845  20   0  98296  1764 poll_s S    ?          0:00 sshd: hashimoto@pts/1
+0  1002  8848  8847  20   0  14532  2048 wait   Ss   pts/1      0:00  \_ -bash
+0  1002 14961  8848  20   0  14192   968 -      R+   pts/1      0:00      \_ ps fxl
+5  1002  3360  3358  20   0  98296  1700 poll_s S    ?          0:04 sshd: hashimoto@pts/0
+0  1002  3361  3360  20   0  14532  2080 wait   Ss   pts/0      0:00  \_ -bash
+0  1002 14929  3361  20   0  12156  1416 wait   S    pts/0      0:00      \_ /bin/sh ./logcheck/logchecker.sh run
+0  1002 14951 14929  20   0   7036   620 inotif S    pts/0      0:00      |   \_ tail -n 0 --follow=name --retry /opt/ap/IBM
+1  1002 14952 14929  20   0  12156   608 pipe_w S    pts/0      0:00      |   \_ /bin/sh ./logcheck/logchecker.sh run
+0  1002 14960  3361  20   0  34204  5932 poll_s S+   pts/0      0:00      \_ vim logcheck/logchecker.sh
 
-# ===================================================
-# 検出文字列
-# ===================================================
-_error_conditions="ハング"
-
+$ kill -2 14951
+EOF
+}
 # ===================================================
 # 稼動環境の確認
 # ===================================================
@@ -63,7 +92,6 @@ else
 	echo "Your platform ($(uname -a)) is not supported."
 	exit 1
 fi
-
 # ===================================================
 # 2重起動防止
 # ===================================================
@@ -79,18 +107,18 @@ fi
 # ログファイルを監視する処理
 # --------------------------------------------------------------------------------------------------
 hit_action() {
-	logger "INFO : START [sendmail_action]"
+	logger "INFO : START [hit_actiona][BASHPID=$BASHPID][PPID=$PPID][PID=$$]"
+
 	while read i
 	do
 		echo $i | grep -q "${_error_conditions}"
 		if [ $? = "0" ];then
 			# アクション
-			#touch /tmp/hogedetayo
-			logger "INFO : アクション: ${i}"
+			logger "INFO : 検知: ${i}"
 			sendmail_action
 		fi
 	done
-	logger "INFO : END   [sendmail_action][RC=$?]"
+	logger "INFO : END   [hit_action][RC=$?]"
 }
 # --------------------------------------------------------------------------------------------------
 # メール送信処理
@@ -98,7 +126,11 @@ hit_action() {
 # --------------------------------------------------------------------------------------------------
 sendmail_action() {
 	logger "INFO : START [sendmail_action]"
-	logger "INDO :   MAIL TO:{}"
+	JENKINS_HOST=SYSAP001.sthdg.local
+	JENKINS_PORT=8083
+	JENKINS_JOBID=logwatch_stwas03
+	JENKINS_TOKEN=BUILD_TOKEN
+	wget -q -O /dev/null --spider http://$JENKINS_HOST:$JENKINS_PORT/job/$JENKINS_JOBID/build?token=$JENKINS_TOKEN
 	logger "INFO : END   [sendmail_action][RC=$?]"
 }
 # --------------------------------------------------------------------------------------------------
@@ -109,14 +141,35 @@ sendmail_action() {
 #                 : name 指定でファイル削除（やリネーム）時の追跡方法がファイルネーム
 # --retry         : ファイルがなくなったことを検知したら再オープンを成功するまで繰り返す
 # --------------------------------------------------------------------------------------------------
-logger "INFO : ${TARGET_LOG_PATH}"
-logger "INFO : ${TARGET_LOG_FILE}"
-logger "INFO : ${TARGET_LOG}"
-logger "INFO : ${LOGWATCH_LOG_PATH}"
-logger "INFO : ${LOGWATCH_LOG_FILE}"
-logger "INGO : ${_error_conditions}"
+Running() {
+	#logger "INFO : ${TARGET_LOG_PATH}"
+	#logger "INFO : ${TARGET_LOG_FILE}"
+	#logger "INFO : PID      = $$"
+	logger "INFO : 監視ログ = ${TARGET_LOG}"
+	#logger "INFO : ${LOGWATCH_LOG_PATH}"
+	#logger "INFO : ${LOGWATCH_LOG_FILE}"
+	logger "INGO : 監視文字 = ${_error_conditions}"
 
+	#トラップ対応
+	trap 'trap_action' {1,2,3,15}
+	#ファイル検知
+	tail -n 0 --follow=name --retry $TARGET_LOG | hit_action
+}
 
-trap 'trap_action' {1,2,3,15}
+case $1 in
+	"")
+	usage
+	exit 8
+	;;
+	"run")
+	Running
+	;;
+	"mail")
+	sendmail_action
+	;;
+	*)
+	usage
+	exit 8
+	;;
+esac
 
-tail -n 0 --follow=name --retry $TARGET_LOG | hit_action
