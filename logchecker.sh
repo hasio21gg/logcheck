@@ -38,6 +38,8 @@ JENKINS_TOKEN=BUILD_TOKEN
 # 検出文字列
 # ===================================================
 _error_conditions="ハング"
+#_error_conditions="Gx0301Action"
+#_error_conditions="SRVE0242I"
 # --------------------------------------------------------------------------------------------------
 # ログ処理
 # --------------------------------------------------------------------------------------------------
@@ -60,15 +62,12 @@ usage() {
 USAGE
     $(basename ${0}) <command>
       <command>
-          runn  : ファイル監視を開始します。
-          mail  : ログ監視して検知したときのメール送信処理だけ実施します（テスト用）
+          run  : ファイル監視を開始します。
+          mail : ログ監視して検知したときのメール送信処理だけ実施します（テスト用）
 終了はCTRL+C または ps fxl として得られたtailコマンドのプロセスをKILLします
 例）
 $ ps fxl
 F   UID   PID  PPID PRI  NI    VSZ   RSS WCHAN  STAT TTY        TIME COMMAND
-5  1002  8847  8845  20   0  98296  1764 poll_s S    ?          0:00 sshd: hashimoto@pts/1
-0  1002  8848  8847  20   0  14532  2048 wait   Ss   pts/1      0:00  \_ -bash
-0  1002 14961  8848  20   0  14192   968 -      R+   pts/1      0:00      \_ ps fxl
 5  1002  3360  3358  20   0  98296  1700 poll_s S    ?          0:04 sshd: hashimoto@pts/0
 0  1002  3361  3360  20   0  14532  2080 wait   Ss   pts/0      0:00  \_ -bash
 0  1002 14929  3361  20   0  12156  1416 wait   S    pts/0      0:00      \_ /bin/sh ./logcheck/logchecker.sh run
@@ -151,7 +150,7 @@ Running() {
 	logger "INGO : 監視文字 = ${_error_conditions}"
 
 	#トラップ対応
-	trap 'trap_action' {1,2,3,15}
+	#trap 'trap_action' {1,2,3,15}
 	#ファイル検知
 	tail -n 0 --follow=name --retry $TARGET_LOG | hit_action
 }
