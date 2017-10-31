@@ -1,5 +1,5 @@
-#!/bin/sh
-set -e
+#!/bin/sh 
+#set -e
 # --------------------------------------------------------------------------------------------------
 # システム名    ：
 # サブシステム名：
@@ -37,9 +37,10 @@ JENKINS_TOKEN=BUILD_TOKEN
 # ===================================================
 # 検出文字列
 # ===================================================
-_error_conditions="ハング"
+#_error_conditions="ハング"
 #_error_conditions="Gx0301Action"
 #_error_conditions="SRVE0242I"
+_error_conditions="WSVR0605W"
 # --------------------------------------------------------------------------------------------------
 # ログ処理
 # --------------------------------------------------------------------------------------------------
@@ -98,7 +99,7 @@ if [ ${OS} == 'Linux' ]; then
 	_process=`basename $0`
 	_pcnt=`pgrep -fo ${_process} | wc -l`
 	if [ ${_pcnt} -gt 1 ]; then
-  		echo "This script has been running now. proc : ${_pcnt}"
+  		logger "This script has been running now. proc : ${_pcnt}"
   		exit 1
 	fi
 fi
@@ -106,18 +107,18 @@ fi
 # ログファイルを監視する処理
 # --------------------------------------------------------------------------------------------------
 hit_action() {
-	logger "INFO : START [hit_actiona][BASHPID=$BASHPID][PPID=$PPID][PID=$$]"
+	# logger "INFO : START [hit_actiona][BASHPID=$BASHPID][PPID=$PPID][PID=$$]"
 
 	while read i
 	do
 		echo $i | grep -q "${_error_conditions}"
 		if [ $? = "0" ];then
 			# アクション
-			logger "INFO : 検知: ${i}"
+			# logger "INFO : 検知: ${i}"
 			sendmail_action
 		fi
 	done
-	logger "INFO : END   [hit_action][RC=$?]"
+	# logger "INFO : END   [hit_action][RC=$?]"
 }
 # --------------------------------------------------------------------------------------------------
 # メール送信処理
@@ -150,7 +151,7 @@ Running() {
 	logger "INGO : 監視文字 = ${_error_conditions}"
 
 	#トラップ対応
-	#trap 'trap_action' {1,2,3,15}
+	trap 'trap_action' {1,2,3,15}
 	#ファイル検知
 	tail -n 0 --follow=name --retry $TARGET_LOG | hit_action
 }
